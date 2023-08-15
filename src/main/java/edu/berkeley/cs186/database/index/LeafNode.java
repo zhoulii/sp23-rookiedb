@@ -185,11 +185,11 @@ class LeafNode extends BPlusNode {
 
         keys = keys.subList(0, metadata.getOrder());
         rids = rids.subList(0, metadata.getOrder());
-        sync();
 
         LeafNode newRightSibling = new LeafNode(metadata, bufferManager, rightKeys, rightRids, rightSibling, treeContext);
 
         rightSibling = Optional.of(newRightSibling.getPage().getPageNum());
+        sync();
 
         return Optional.of(new Pair<>(rightKeys.get(0), newRightSibling.getPage().getPageNum()));
     }
