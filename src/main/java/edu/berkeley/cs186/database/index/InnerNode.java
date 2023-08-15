@@ -102,7 +102,37 @@ class InnerNode extends BPlusNode {
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
 
-        return Optional.empty();
+        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(numLessThanEqual(key, keys)));
+        Optional<Pair<DataBox, Long>> splitInfo = child.put(key, rid);
+
+        if(!splitInfo.isPresent()) {
+            return splitInfo;
+        }
+
+        Pair<DataBox, Long> info = splitInfo.get();
+        int index = InnerNode.numLessThan(key, keys);
+        keys.add(index, info.getFirst());
+        children.add(index + 1, info.getSecond());
+
+        if(keys.size() <= metadata.getOrder() * 2) {
+            // case 1: If inserting the pair (k, r) does not cause leaf to overflow
+            sync();
+            return Optional.empty();
+        }
+
+        // case2: If inserting the pair (k, r) cause leaf to overflow, a pair (split_key, right_node_page_num) is returned.
+        DataBox splitKey = keys.get(metadata.getOrder());
+        List<DataBox> rightKeys = keys.subList(metadata.getOrder() + 1, keys.size());
+        List<Long> rightChildren = children.subList(metadata.getOrder() + 1, children.size());
+
+        keys = keys.subList(0, metadata.getOrder());
+        children = children.subList(0, metadata.getOrder() + 1);
+        sync();
+
+        Page newPage = bufferManager.fetchNewPage(treeContext, metadata.getPartNum());
+        InnerNode newRightSibling = new InnerNode(metadata, bufferManager, newPage, rightKeys, rightChildren, treeContext);
+
+        return Optional.of(new Pair<>(splitKey, newPage.getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.
