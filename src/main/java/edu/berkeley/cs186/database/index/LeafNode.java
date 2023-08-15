@@ -187,12 +187,11 @@ class LeafNode extends BPlusNode {
         rids = rids.subList(0, metadata.getOrder());
         sync();
 
-        Page newPage = bufferManager.fetchNewPage(treeContext, metadata.getPartNum());
-        LeafNode newRightSibling = new LeafNode(metadata, bufferManager, newPage, rightKeys, rightRids, rightSibling, treeContext);
+        LeafNode newRightSibling = new LeafNode(metadata, bufferManager, rightKeys, rightRids, rightSibling, treeContext);
 
-        rightSibling = Optional.of(newPage.getPageNum());
+        rightSibling = Optional.of(newRightSibling.getPage().getPageNum());
 
-        return Optional.of(new Pair<>(rightKeys.get(0), newPage.getPageNum()));
+        return Optional.of(new Pair<>(rightKeys.get(0), newRightSibling.getPage().getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.

@@ -129,10 +129,9 @@ class InnerNode extends BPlusNode {
         children = children.subList(0, metadata.getOrder() + 1);
         sync();
 
-        Page newPage = bufferManager.fetchNewPage(treeContext, metadata.getPartNum());
-        InnerNode newRightSibling = new InnerNode(metadata, bufferManager, newPage, rightKeys, rightChildren, treeContext);
+        InnerNode newRightSibling = new InnerNode(metadata, bufferManager, rightKeys, rightChildren, treeContext);
 
-        return Optional.of(new Pair<>(splitKey, newPage.getPageNum()));
+        return Optional.of(new Pair<>(splitKey, newRightSibling.getPage().getPageNum()));
     }
 
     // See BPlusNode.bulkLoad.
