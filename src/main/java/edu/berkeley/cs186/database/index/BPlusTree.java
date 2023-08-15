@@ -241,6 +241,17 @@ public class BPlusTree {
         return new BPlusTreeIterator(leafNode, key);
     }
 
+    private void splitRoot(DataBox key, Long child) {
+        // split the root
+        ArrayList<DataBox> keys = new ArrayList<>();
+        keys.add(key);
+        ArrayList<Long> children = new ArrayList<>();
+        children.add(root.getPage().getPageNum()); // left child: original root
+        children.add(child); // roght child: new split node
+        InnerNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+        updateRoot(newRoot);
+    }
+
     /**
      * Inserts a (key, rid) pair into a B+ tree. If the key already exists in
      * the B+ tree, then the pair is not inserted and an exception is raised.
@@ -263,14 +274,7 @@ public class BPlusTree {
         Optional<Pair<DataBox, Long>> splitInfo = root.put(key, rid);
 
         if(splitInfo.isPresent()) {
-            // split the root
-            ArrayList<DataBox> keys = new ArrayList<>();
-            keys.add(splitInfo.get().getFirst());
-            ArrayList<Long> children = new ArrayList<>();
-            children.add(root.getPage().getPageNum()); // left child: original root
-            children.add(splitInfo.get().getSecond()); // roght child: new split node
-            InnerNode newRoot = new InnerNode(metadata, bufferManager, keys, children, lockContext);
-            updateRoot(newRoot);
+            splitRoot(splitInfo.get().getFirst(), splitInfo.get().getSecond());
         }
 
         return;
@@ -303,6 +307,17 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
+
+        if(scanAll().hasNext()) {
+            throw new RuntimeException("bulkload must be called in an empty tree");
+        }
+
+        while (data.hasNext()) {
+            Optional<Pair<DataBox, Long>> splitInfo = root.bulkLoad(data, fillFactor);
+            if(splitInfo.isPresent()) {
+                splitRoot(splitInfo.get().getFirst(), splitInfo.get().getSecond());
+            }
+        }
 
         return;
     }

@@ -200,7 +200,31 @@ class LeafNode extends BPlusNode {
             float fillFactor) {
         // TODO(proj2): implement
 
-        return Optional.empty();
+        int maxRecords = (int) Math.ceil(fillFactor * metadata.getOrder() * 2);
+
+        while (keys.size() < maxRecords && data.hasNext()) {
+            Pair<DataBox, RecordId> next = data.next();
+            keys.add(next.getFirst());
+            rids.add(next.getSecond());
+        }
+
+        // if there is more data, then split
+
+        Optional<Pair<DataBox, Long>> ret = Optional.empty();
+        if(data.hasNext()) {
+            ArrayList<DataBox> newKeys = new ArrayList<>();
+            ArrayList<RecordId> newRids = new ArrayList<>();
+            Pair<DataBox, RecordId> p = data.next();
+            newKeys.add(p.getFirst());
+            newRids.add(p.getSecond());
+            LeafNode newRightSibling = new LeafNode(metadata, bufferManager, newKeys, newRids, rightSibling, treeContext);
+            rightSibling = Optional.of(newRightSibling.getPage().getPageNum());
+            ret = Optional.of(new Pair<>(p.getFirst(), rightSibling.get()));
+        }
+
+        sync();
+
+        return ret;
     }
 
     // See BPlusNode.remove.

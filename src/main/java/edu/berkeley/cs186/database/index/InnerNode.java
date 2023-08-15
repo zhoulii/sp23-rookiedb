@@ -97,22 +97,10 @@ class InnerNode extends BPlusNode {
         return child.getLeftmostLeaf();
     }
 
-    // See BPlusNode.put.
-    @Override
-    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
-
-        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(numLessThanEqual(key, keys)));
-        Optional<Pair<DataBox, Long>> splitInfo = child.put(key, rid);
-
-        if(!splitInfo.isPresent()) {
-            return splitInfo;
-        }
-
-        Pair<DataBox, Long> info = splitInfo.get();
+    private Optional<Pair<DataBox, Long>> insert(DataBox key, Long child) {
         int index = InnerNode.numLessThan(key, keys);
-        keys.add(index, info.getFirst());
-        children.add(index + 1, info.getSecond());
+        keys.add(index, key);
+        children.add(index + 1, child);
 
         if(keys.size() <= metadata.getOrder() * 2) {
             // case 1: If inserting the pair (k, r) does not cause leaf to overflow
@@ -134,13 +122,47 @@ class InnerNode extends BPlusNode {
         return Optional.of(new Pair<>(splitKey, newRightSibling.getPage().getPageNum()));
     }
 
+    // See BPlusNode.put.
+    @Override
+    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
+        // TODO(proj2): implement
+
+        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(numLessThanEqual(key, keys)));
+        Optional<Pair<DataBox, Long>> splitInfo = child.put(key, rid);
+
+        if(!splitInfo.isPresent()) {
+            return splitInfo;
+        }
+
+        Pair<DataBox, Long> info = splitInfo.get();
+
+        return insert(splitInfo.get().getFirst(), splitInfo.get().getSecond());
+    }
+
     // See BPlusNode.bulkLoad.
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
         // TODO(proj2): implement
 
-        return Optional.empty();
+        BPlusNode rightMostChild = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(children.size() - 1));
+        Optional<Pair<DataBox, Long>> splitInfo = rightMostChild.bulkLoad(data, fillFactor);
+
+        if(!splitInfo.isPresent()) {
+            return splitInfo;
+        }
+
+        DataBox splitKey = splitInfo.get().getFirst();
+        Long child = splitInfo.get().getSecond();
+
+        Optional<Pair<DataBox, Long>> mySplitInfo = insert(splitKey, child);
+
+        if(!mySplitInfo.isPresent()) {
+            // this inner node does not split, call bulk load recursively
+            return bulkLoad(data, fillFactor);
+        }
+
+        return mySplitInfo;
     }
 
     // See BPlusNode.remove.
